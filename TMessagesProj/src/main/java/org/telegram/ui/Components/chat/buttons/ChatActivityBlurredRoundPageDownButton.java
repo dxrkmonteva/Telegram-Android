@@ -58,6 +58,21 @@ public class ChatActivityBlurredRoundPageDownButton extends FrameLayout {
         });
     }
 
+    /** Starts the pull when the finger travels up far enough; works whether or not a child consumed ACTION_DOWN. */
+    private boolean checkStartPull(MotionEvent ev) {
+        float dy = downY - ev.getY();
+        float dx = Math.abs(ev.getX() - downX);
+        if (!pulling && dy > touchSlop * 1.6f && dy > dx * 1.2f) {
+            pulling = true;
+            setPressed(false);
+            if (getParent() != null) {
+                getParent().requestDisallowInterceptTouchEvent(true);
+            }
+            return true;
+        }
+        return pulling;
+    }
+
     @Override
     public boolean onInterceptTouchEvent(MotionEvent ev) {
         if (tideView != null && isEnabled()) {
@@ -68,14 +83,8 @@ public class ChatActivityBlurredRoundPageDownButton extends FrameLayout {
                     pulling = false;
                     break;
                 case MotionEvent.ACTION_MOVE:
-                    float dy = downY - ev.getY();
-                    float dx = Math.abs(ev.getX() - downX);
-                    if (!pulling && dy > touchSlop * 1.6f && dy > dx * 1.2f) {
-                        pulling = true;
-                        if (getParent() != null) {
-                            getParent().requestDisallowInterceptTouchEvent(true);
-                        }
-                        tideView.setPull(dy);
+                    if (checkStartPull(ev)) {
+                        tideView.setPull(ev.getX() - downX, downY - ev.getY());
                         return true;
                     }
                     break;
@@ -86,21 +95,41 @@ public class ChatActivityBlurredRoundPageDownButton extends FrameLayout {
 
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
-        if (tideView != null && pulling) {
+        if (tideView != null && isEnabled()) {
             switch (ev.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    downX = ev.getX();
+                    downY = ev.getY();
+                    pulling = false;
+                    break;
                 case MotionEvent.ACTION_MOVE:
-                    tideView.setPull(downY - ev.getY());
-                    return true;
+                    if (checkStartPull(ev)) {
+                        if (!tideView.isPulling()) {
+                            // no child owned the gesture: cancel our own pressed/click state
+                            MotionEvent c = MotionEvent.obtain(ev);
+                            c.setAction(MotionEvent.ACTION_CANCEL);
+                            super.onTouchEvent(c);
+                            c.recycle();
+                        }
+                        tideView.setPull(ev.getX() - downX, downY - ev.getY());
+                        return true;
+                    }
+                    break;
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
-                    pulling = false;
-                    boolean poured = tideView.release(ev.getActionMasked() == MotionEvent.ACTION_CANCEL);
-                    if (poured) {
-                        callOnClick();
+                    if (pulling) {
+                        pulling = false;
+                        boolean poured = tideView.release(ev.getActionMasked() == MotionEvent.ACTION_CANCEL);
+                        if (poured) {
+                            callOnClick();
+                        }
+                        return true;
                     }
-                    return true;
+                    break;
             }
-            return true;
+            if (pulling) {
+                return true;
+            }
         }
         return super.onTouchEvent(ev);
     }
