@@ -101,6 +101,20 @@ public class TideView extends View implements SensorEventListener {
     private float lax, lay, lmag = 9.81f;
     private boolean sensorOn;
 
+    // entry animation: opening a chat with unread messages fills the empty flask, one drop per message
+    public interface EntryListener {
+        void onProgress(int landed, int total);
+    }
+    private EntryListener entryListener;
+    private boolean entryEnabled = true;
+    private boolean entryPlayed;
+    private boolean entryArmed, entryActive;
+    private int entryTotal, entrySpawned, entryLanded;
+    private float entryT;
+    private int lastCount;
+    private long lastTickTime;
+    private float ringT = 1f;
+
     private long lastTime;
     private float acc;
     private int rng = 0x2545F491;
@@ -130,15 +144,54 @@ public class TideView extends View implements SensorEventListener {
         invalidate();
     }
 
+    private static float levelFor(int count) {
+        return count <= 0 ? 0.06f : 0.06f + 0.92f * (1f - (float) Math.exp(-count / 14f));
+    }
+
+    private static float entrySeconds(int n) {
+        return Math.min(7f, 2.0f + 0.605f * (float) (Math.log(n + 1) / Math.log(2)));
+    }
+
+    public void setEntryEnabled(boolean enabled) {
+        entryEnabled = enabled;
+    }
+
+    public void setEntryListener(EntryListener l) {
+        entryListener = l;
+    }
+
+    public boolean isEntryPending() {
+        return entryArmed || entryActive;
+    }
+
     public void setCount(int count, boolean animated) {
-        float target = count <= 0 ? 0.06f : 0.2f + 0.72f * (1f - (float) Math.exp(-count / 11f));
-        boolean grew = target > levelTarget + 0.001f;
+        int prev = lastCount;
+        lastCount = count;
+        if (entryArmed || entryActive) {
+            entryTotal = Math.max(entryTotal, count);
+            return;
+        }
+        if (!entryPlayed && entryEnabled && count >= 2) {
+            entryPlayed = true;
+            entryArmed = true;
+            entryTotal = count;
+            entrySpawned = 0;
+            entryLanded = 0;
+            entryT = 0;
+            level = 0;
+            levelVel = 0;
+            levelTarget = levelFor(0);
+            invalidate();
+            return;
+        }
+        float target = levelFor(count);
+        boolean grew = count > prev && target > levelTarget + 0.001f;
         levelTarget = target;
         if (!animated) {
             level = target;
             levelVel = 0;
         } else if (grew && count > 0) {
-            spawnDrop();
+            spawnDrop(0);
         }
         if (count <= 0) {
             drain = 0;
@@ -313,9 +366,9 @@ public class TideView extends View implements SensorEventListener {
         return cy + R - eff * 2f * R;
     }
 
-    private void spawnDrop() {
+    private boolean spawnDrop(int type) {
         if (pCount >= MAX_P) {
-            return;
+            return false;
         }
         int i = pCount++;
         px[i] = cx + (rnd() - 0.5f) * R * 0.9f;
@@ -324,7 +377,8 @@ public class TideView extends View implements SensorEventListener {
         pvy[i] = dp(120);
         pr[i] = dp(2.2f) + rnd() * dp(1.4f);
         plife[i] = 1f;
-        ptype[i] = 0;
+        ptype[i] = type;
+        return true;
     }
 
     private void burst(float x, float y, int count, float speed) {
@@ -355,6 +409,21 @@ public class TideView extends View implements SensorEventListener {
 
     private boolean step(float dt) {
         boolean alive = false;
+
+        // entry animation: drops fall one after another, accelerating a little
+        if (entryActive) {
+            entryT += dt;
+            float total = entrySeconds(entryTotal);
+            while (entrySpawned < entryTotal) {
+                float f = entrySpawned / (float) Math.max(1, entryTotal - 1);
+                float when = 0.3f + total * (1f - (float) Math.pow(1f - f, 1.25f));
+                if (entryT < when || !spawnDrop(2)) {
+                    break;
+                }
+                entrySpawned++;
+            }
+            alive = true;
+        }
 
         // level spring
         levelVel += (70f * (levelTarget - level) - 9f * levelVel) * dt;
@@ -461,7 +530,7 @@ public class TideView extends View implements SensorEventListener {
             pvy[i] += g * dt;
             px[i] += pvx[i] * dt;
             py[i] += pvy[i] * dt;
-            if (ptype[i] == 0) {
+            if (ptype[i] != 1) {
                 float sy = surfaceCenterY() + slope * (px[i] - cx);
                 if (py[i] >= sy - pr[i] && py[i] < cy + R) {
                     int idx = Math.max(0, Math.min(N, Math.round((px[i] - (cx - R)) / (2f * R) * N)));
@@ -471,10 +540,26 @@ public class TideView extends View implements SensorEventListener {
                             v[j] += dp(210) * (1f - Math.abs(k2) / 4f);
                         }
                     }
-                    levelVel += 0.12f;
+                    boolean entryDrop = ptype[i] == 2;
+                    levelVel += entryDrop ? 0.03f : 0.12f;
                     glint = Math.max(glint, 0.6f);
                     burst2(px[i], sy);
                     removeParticle(i);
+                    if (entryDrop && entryActive) {
+                        entryLanded++;
+                        levelTarget = levelFor(entryLanded);
+                        if (entryListener != null) {
+                            entryListener.onProgress(entryLanded, entryTotal);
+                        }
+                        long t = SystemClock.uptimeMillis();
+                        if (t - lastTickTime > 70) {
+                            lastTickTime = t;
+                            performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK);
+                        }
+                        if (entryLanded >= entryTotal) {
+                            finishEntry();
+                        }
+                    }
                     continue;
                 }
             } else {
@@ -504,6 +589,26 @@ public class TideView extends View implements SensorEventListener {
         return alive;
     }
 
+    private void finishEntry() {
+        entryActive = false;
+        levelTarget = levelFor(Math.max(entryTotal, lastCount));
+        if (entryListener != null) {
+            entryListener.onProgress(Math.max(entryTotal, lastCount), entryTotal);
+        }
+        // "full flask" flourish: surge across the surface, ring around the glass, sparkles
+        for (int k = 0; k <= N; k++) {
+            v[k] += dp(300) * (1f - Math.abs(2f * k / N - 1f) * 0.5f) * (k % 2 == 0 ? 1f : -0.6f);
+        }
+        glint = 1f;
+        ringT = 0f;
+        burst(cx, cy - R, 14, dp(520));
+        try {
+            performHapticFeedback(android.os.Build.VERSION.SDK_INT >= 30
+                ? android.view.HapticFeedbackConstants.CONFIRM
+                : android.view.HapticFeedbackConstants.KEYBOARD_TAP);
+        } catch (Throwable ignore) {}
+    }
+
     private void burst2(float x, float y) {
         for (int k = 0; k < 3 && pCount < MAX_P; k++) {
             int i = pCount++;
@@ -523,6 +628,15 @@ public class TideView extends View implements SensorEventListener {
     protected void onDraw(Canvas canvas) {
         if (R <= 0) {
             return;
+        }
+        if (entryArmed && getParent() instanceof View && ((View) getParent()).getAlpha() > 0.6f) {
+            entryArmed = false;
+            entryActive = true;
+            entryT = 0;
+            lastTime = 0;
+            if (entryListener != null) {
+                entryListener.onProgress(0, entryTotal);
+            }
         }
         long now = SystemClock.uptimeMillis();
         if (lastTime == 0 || now - lastTime > 100) {
@@ -608,6 +722,14 @@ public class TideView extends View implements SensorEventListener {
         // 4. pulled column
         if (blobY > dp(1.2f) || flying) {
             drawColumn(canvas, yc);
+        }
+
+        if (ringT < 1f) {
+            ringT = Math.min(1f, ringT + 0.016f * 1.1f);
+            glassPaint.setStrokeWidth(dp(2f) * (1f - ringT) + dp(0.6f));
+            glassPaint.setColor(ColorUtils.setAlphaComponent(lightColor, (int) (230 * (1f - ringT))));
+            canvas.drawCircle(cx, cy, R + dp(2) + dp(20) * ringT, glassPaint);
+            postInvalidateOnAnimation();
         }
 
         // 5. droplets

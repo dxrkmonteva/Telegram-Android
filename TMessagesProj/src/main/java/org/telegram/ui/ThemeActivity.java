@@ -155,6 +155,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
     @Keep
     private int sensitiveContentRow;
     private int raiseToSpeakRow;
+    private int tideFillRow;
     @Keep
     private int raiseToListenRow;
     private int nextMediaTapRow;
@@ -586,6 +587,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
         sensitiveContentRow = -1;
         enableAnimationsRow = -1;
         raiseToSpeakRow = -1;
+        tideFillRow = -1;
         raiseToListenRow = -1;
         nextMediaTapRow = -1;
         sendByEnterRow = -1;
@@ -703,6 +705,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 sensitiveContentRow = rowCount++;
             }
             sendByEnterRow = rowCount++;
+            tideFillRow = rowCount++;
             distanceRow = rowCount++;
             otherSectionRow = rowCount++;
         } else {
@@ -1125,6 +1128,11 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 editor.commit();
                 if (view instanceof TextCheckCell) {
                     ((TextCheckCell) view).setChecked(!send);
+                }
+            } else if (position == tideFillRow) {
+                SharedConfig.toggleTideFillAnimation();
+                if (view instanceof TextCheckCell) {
+                    ((TextCheckCell) view).setChecked(SharedConfig.tideFillAnimation);
                 }
             } else if (position == raiseToSpeakRow) {
                 SharedConfig.toggleRaiseToSpeak();
@@ -2604,6 +2612,8 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                     } else if (position == sendByEnterRow) {
                         SharedPreferences preferences = MessagesController.getGlobalMainSettings();
                         textCheckCell.setTextAndCheck(getString("SendByEnter", R.string.SendByEnter), preferences.getBoolean("send_by_enter", false), true);
+                    } else if (position == tideFillRow) {
+                        textCheckCell.setTextAndValueAndCheck("Tide fill animation", "Fill the unread flask drop by drop when you open a chat", SharedConfig.tideFillAnimation, true, true);
                     } else if (position == raiseToSpeakRow) {
                         textCheckCell.setTextAndValueAndCheck(getString("RaiseToSpeak", R.string.RaiseToSpeak), getString("RaiseToSpeakInfo", R.string.RaiseToSpeakInfo), SharedConfig.raiseToSpeak, true, true);
                     } else if (position == raiseToListenRow) {
@@ -2752,7 +2762,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
             } else if (position == automaticBrightnessRow) {
                 return TYPE_BRIGHTNESS;
             } else if (position == scheduleLocationRow || position == sendByEnterRow ||
-                    position == raiseToSpeakRow || position == raiseToListenRow || position == pauseOnRecordRow ||
+                    position == tideFillRow || position == raiseToSpeakRow || position == raiseToListenRow || position == pauseOnRecordRow ||
                     position == directShareRow || position == chatBlurRow || position == pauseOnMediaRow || position == nextMediaTapRow || position == sensitiveContentRow) {
                 return TYPE_TEXT_CHECK;
             } else if (position == textSizeRow) {

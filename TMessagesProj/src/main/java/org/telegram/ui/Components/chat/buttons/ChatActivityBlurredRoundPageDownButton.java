@@ -50,6 +50,12 @@ public class ChatActivityBlurredRoundPageDownButton extends FrameLayout {
         // below the counter, above the glass button; wider/taller than the button, draws outside of it
         addView(tideView, 1, LayoutHelper.createFrame(TideView.VIEW_W_DP, TideView.VIEW_H_DP, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL));
         tideView.setClickable(false);
+        tideView.setEntryEnabled(org.telegram.messenger.SharedConfig.tideFillAnimation);
+        tideView.setEntryListener((landed, total) -> {
+            if (counterView != null) {
+                counterView.setCount(landed, true);
+            }
+        });
     }
 
     @Override
@@ -125,6 +131,9 @@ public class ChatActivityBlurredRoundPageDownButton extends FrameLayout {
         counterView.setCount(count, animated);
         if (tideView != null) {
             tideView.setCount(count, animated);
+            if (tideView.isEntryPending()) {
+                counterView.setCount(0, false);
+            }
         }
     }
 

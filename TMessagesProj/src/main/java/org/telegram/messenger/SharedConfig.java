@@ -287,6 +287,7 @@ public class SharedConfig {
     public static String searchEngineCustomURLQuery, searchEngineCustomURLAutocomplete;
     public static boolean chatBubbles = Build.VERSION.SDK_INT >= 30;
     public static boolean raiseToSpeak = false;
+    public static boolean tideFillAnimation = true;
     public static boolean raiseToListen = true;
     public static boolean nextMediaTap = true;
     public static boolean recordViaSco = false;
@@ -599,6 +600,7 @@ public class SharedConfig {
             searchEngineType = preferences.getInt("searchEngineType", 0);
             raiseToListen = preferences.getBoolean("raise_to_listen", true);
             raiseToSpeak = preferences.getBoolean("raise_to_speak", false);
+            tideFillAnimation = preferences.getBoolean("tide_fill_animation", true);
             nextMediaTap = preferences.getBoolean("next_media_on_tap", true);
             recordViaSco = preferences.getBoolean("record_via_sco", false);
             adaptableColorInBrowser = preferences.getBoolean("adaptableBrowser", false);
@@ -1252,6 +1254,11 @@ public class SharedConfig {
         SharedPreferences.Editor editor = preferences.edit();
         editor.putBoolean("noSoundHintShowed", noSoundHintShowed);
         editor.apply();
+    }
+
+    public static void toggleTideFillAnimation() {
+        tideFillAnimation = !tideFillAnimation;
+        MessagesController.getGlobalMainSettings().edit().putBoolean("tide_fill_animation", tideFillAnimation).apply();
     }
 
     public static void toggleRaiseToSpeak() {
