@@ -77,6 +77,8 @@ public class ChatActivitySideControlsButtonsLayout extends FrameLayout implement
         this.blurredBackgroundDrawableViewFactory = blurredBackgroundDrawableViewFactory;
         this.colorProvider = colorProvider;
         this.resourcesProvider = resourcesProvider;
+        setClipChildren(false);
+        setClipToPadding(false);
     }
 
     private int gravity = Gravity.LEFT | Gravity.BOTTOM;
@@ -258,6 +260,7 @@ public class ChatActivitySideControlsButtonsLayout extends FrameLayout implement
             }
             if (buttonId == BUTTON_PAGE_DOWN) {
                 button.reverseCounter();
+                button.enableTide();
             }
 
             addView(button, LayoutHelper.createFrame(size, size + 8, gravity));
