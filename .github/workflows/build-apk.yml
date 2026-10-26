@@ -2,7 +2,7 @@ name: Build debug APK (arm64)
 
 on:
   push:
-    branches: [reply-thread, sticker-peel, voice-blob, time-map, demo-all]
+    branches: [reply-thread, tide, sticker-peel, voice-blob, time-map, demo-all]
   workflow_dispatch:
 
 jobs:
