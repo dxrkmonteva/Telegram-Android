@@ -4,6 +4,11 @@ on:
   push:
     branches: [reply-thread, tide, sticker-peel, voice-blob, time-map, demo-all]
   workflow_dispatch:
+    inputs:
+      send_messages:
+        description: "Send fresh demo messages to the Telegram group after the build"
+        type: boolean
+        default: true
 
 jobs:
   compile:
@@ -166,3 +171,37 @@ jobs:
           compression-level: 0
           retention-days: 14
           if-no-files-found: error
+
+  demo-chat:
+    # After a green build, drop a fresh random science discussion into the demo group
+    # so the chat has new unread messages when you install the APK.
+    # Needs repository secrets BOT_TOKEN and CHAT_ID; skipped silently without them.
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.send_messages }}
+    env:
+      BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+      CHAT_ID: ${{ secrets.CHAT_ID }}
+      MSG_MIN: ${{ vars.MSG_MIN }}
+      MSG_MAX: ${{ vars.MSG_MAX }}
+    steps:
+      - name: Check secrets
+        id: chk
+        run: |
+          if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
+            echo "::notice::BOT_TOKEN / CHAT_ID secrets not set, skipping demo messages"
+            echo "go=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=yes" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.chk.outputs.go == 'yes'
+        with:
+          ref: demo-tools
+          fetch-depth: 1
+      - name: Send messages
+        if: steps.chk.outputs.go == 'yes'
+        run: |
+          pip install --quiet matplotlib || true
+          python3 tools/demo_chat/random_chat.py
