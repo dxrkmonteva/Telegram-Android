@@ -1,0 +1,43 @@
+name: Send demo messages
+
+# Sends a fresh random science discussion to the demo Telegram group. No build.
+# Run it from the Actions tab (Run workflow) before opening the chat on your phone.
+# Needs repository secrets BOT_TOKEN and CHAT_ID. Optional variables MSG_MIN / MSG_MAX.
+
+on:
+  workflow_dispatch:
+    inputs:
+      min_messages:
+        description: "Minimum number of messages (empty = repository variable MSG_MIN or 25)"
+        required: false
+        default: ""
+      max_messages:
+        description: "Maximum number of messages (empty = repository variable MSG_MAX or 55)"
+        required: false
+        default: ""
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+      CHAT_ID: ${{ secrets.CHAT_ID }}
+      MSG_MIN: ${{ inputs.min_messages || vars.MSG_MIN }}
+      MSG_MAX: ${{ inputs.max_messages || vars.MSG_MAX }}
+    steps:
+      - name: Check secrets
+        run: |
+          if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
+            echo "::error::Secrets BOT_TOKEN and CHAT_ID are not set (Settings > Secrets and variables > Actions)"
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: demo-tools
+          fetch-depth: 1
+      - name: Send messages
+        run: |
+          pip install --quiet matplotlib || true
+          python3 tools/demo_chat/random_chat.py
