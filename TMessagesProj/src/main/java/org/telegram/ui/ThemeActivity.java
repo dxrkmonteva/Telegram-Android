@@ -659,6 +659,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
             textSizeRow = rowCount++;
             backgroundRow = rowCount++;
             changeUserColor = rowCount++;
+            tideFillRow = rowCount++;
             newThemeInfoRow = rowCount++;
             themeHeaderRow = rowCount++;
 
@@ -705,7 +706,6 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 sensitiveContentRow = rowCount++;
             }
             sendByEnterRow = rowCount++;
-            tideFillRow = rowCount++;
             distanceRow = rowCount++;
             otherSectionRow = rowCount++;
         } else {

@@ -132,6 +132,8 @@ public class TideView extends View implements SensorEventListener {
     private int lastCount;
     private long lastTickTime;
 
+    private TideGLView gl;
+
     private long lastTime;
     private float acc;
     private int rng = 0x2545F491;
@@ -267,6 +269,10 @@ public class TideView extends View implements SensorEventListener {
         }
         invalidate();
         return pour;
+    }
+
+    public void setGL(TideGLView g) {
+        gl = g;
     }
 
     public boolean isPulling() {
@@ -747,6 +753,19 @@ public class TideView extends View implements SensorEventListener {
         float yc = surfaceCenterY();
         boolean column = blobY > dp(1.2f) || flying;
 
+        if (gl != null && !gl.hasFailed()) {
+            pushGL(yc, column);
+            if (gl.isReady()) {
+                if (alive || level > 0.02f || sensorOn && Math.abs(slopeTarget - slope) > 0.0005f || ringT < 1f) {
+                    if (ringT < 1f) {
+                        ringT = Math.min(1f, ringT + 0.016f * 1.1f);
+                    }
+                    postInvalidateOnAnimation();
+                }
+                return;
+            }
+        }
+
         // 1. glass inner tint
         fillPaint.setColor(ColorUtils.setAlphaComponent(Color.BLACK, 40));
         canvas.drawCircle(cx, cy, R, fillPaint);
@@ -908,7 +927,98 @@ public class TideView extends View implements SensorEventListener {
         }
     }
 
-    private void drawColumn(Canvas canvas, float yc) {
+    private static void rgb(float[] out, int off, int color) {
+        out[off] = Color.red(color) / 255f;
+        out[off + 1] = Color.green(color) / 255f;
+        out[off + 2] = Color.blue(color) / 255f;
+    }
+
+    /** Snapshot of the state for the GL renderer. */
+    private void pushGL(float yc, boolean column) {
+        float left = cx - R;
+        float st = 2f * R / N;
+        float amb = dp(0.7f);
+        float x0 = Float.MAX_VALUE, y0 = Float.MAX_VALUE, x1 = -Float.MAX_VALUE, y1 = -Float.MAX_VALUE;
+        synchronized (gl.lock) {
+            for (int i = 0; i <= N; i++) {
+                float x = left + st * i;
+                gl.ys[i] = surfaceAt(x, yc, i, amb * (float) Math.sin(x * 0.42f + time * 2.3f + 1f));
+                int ph = (i + N / 3) % (N + 1);
+                gl.yb[i] = surfaceAt(x, yc, ph, amb * (float) Math.sin(x * 0.33f + time * 1.7f)) + dp(1.5f) - h[ph] * 0.35f;
+            }
+            int cnt = 0;
+            if (column) {
+                layoutColumn(yc);
+                for (int i = 0; i < M - 1; i++) {
+                    gl.cc[i * 3] = cx + offX[i];
+                    gl.cc[i * 3 + 1] = colY[i];
+                    gl.cc[i * 3 + 2] = colW[i];
+                    x0 = Math.min(x0, cx + offX[i] - colW[i]);
+                    x1 = Math.max(x1, cx + offX[i] + colW[i]);
+                    y0 = Math.min(y0, colY[i] - colW[i]);
+                    y1 = Math.max(y1, colY[i] + colW[i]);
+                }
+                gl.cc[(M - 1) * 3] = colBX;
+                gl.cc[(M - 1) * 3 + 1] = colBY;
+                gl.cc[(M - 1) * 3 + 2] = colRB;
+                x0 = Math.min(x0, colBX - colRB);
+                x1 = Math.max(x1, colBX + colRB);
+                y0 = Math.min(y0, colBY - colRB);
+                y1 = Math.max(y1, colBY + colRB);
+                cnt = M;
+            }
+            gl.cn = cnt;
+            gl.pn = pCount;
+            for (int i = 0; i < pCount; i++) {
+                float a = ptype[i] == 1 ? Math.max(0.15f, Math.min(1f, plife[i] * 1.6f)) : 1f;
+                gl.pp[i * 3] = px[i];
+                gl.pp[i * 3 + 1] = py[i];
+                gl.pp[i * 3 + 2] = pr[i] * a;
+                x0 = Math.min(x0, px[i] - pr[i] * 3f);
+                x1 = Math.max(x1, px[i] + pr[i] * 3f);
+                y0 = Math.min(y0, py[i] - pr[i] * 3f);
+                y1 = Math.max(y1, py[i] + pr[i] * 3f);
+            }
+            float depth = Math.max(0f, cy + R - yc);
+            for (int i = 0; i < BUBBLES; i++) {
+                boolean on = level > 0.12f;
+                gl.bb[i * 3] = cx + bx[i] * R * 0.55f + (float) Math.sin(time * 3f + i * 2f) * dp(1.2f);
+                gl.bb[i * 3 + 1] = cy + R - by[i] * depth;
+                gl.bb[i * 3 + 2] = on ? dp(0.8f + 0.55f * bs[i]) : 0f;
+            }
+            float[] m = gl.misc;
+            m[TideGLView.M_GEO] = cx;
+            m[TideGLView.M_GEO + 1] = cy;
+            m[TideGLView.M_GEO + 2] = R;
+            m[TideGLView.M_GEO + 3] = yc;
+            rgb(m, TideGLView.M_LIGHT, lightColor);
+            rgb(m, TideGLView.M_BASE, baseColor);
+            rgb(m, TideGLView.M_DEEP, deepColor);
+            m[TideGLView.M_FX] = time;
+            m[TideGLView.M_FX + 1] = glint;
+            m[TideGLView.M_FX + 2] = ringT;
+            m[TideGLView.M_FX + 3] = (armed || flying) && column ? 1f : 0f;
+            m[TideGLView.M_BLOB] = colBX;
+            m[TideGLView.M_BLOB + 1] = colBY;
+            m[TideGLView.M_BLOB + 2] = colRB;
+            m[TideGLView.M_BLOB + 3] = 0.5f + 0.5f * (float) Math.sin(time * 14f);
+            m[TideGLView.M_LEVEL] = (level > 0.004f || drain > 0) ? (level > 0.1f ? 2f : 1f) : 0f;
+            if (x0 > x1) {
+                x0 = y0 = x1 = y1 = 0;
+            }
+            m[TideGLView.M_BBOX] = x0 - dp(4);
+            m[TideGLView.M_BBOX + 1] = y0 - dp(4);
+            m[TideGLView.M_BBOX + 2] = x1 + dp(4);
+            m[TideGLView.M_BBOX + 3] = y1 + dp(4);
+            m[TideGLView.M_DP] = dp(1);
+        }
+        gl.commit();
+    }
+
+    private float colBX, colBY, colRB;
+
+    /** Computes the column nodes (positions and widths); shared by the Canvas and the GL paths. */
+    private void layoutColumn(float yc) {
         float max = dp(PULL_MAX_DP);
         float s = Math.max(0f, Math.min(1f, blobY / max));
         float vol = Math.max(0.12f, level);
@@ -927,8 +1037,14 @@ public class TideView extends View implements SensorEventListener {
             colW[i] = Math.max(dp(0.8f), w);
             colY[i] = yc - len * t;
         }
-        float bxx = cx + offX[M - 1];
-        float byy = colY[M - 1];
+        colRB = rB;
+        colBX = cx + offX[M - 1];
+        colBY = colY[M - 1];
+    }
+
+    private void drawColumn(Canvas canvas, float yc) {
+        layoutColumn(yc);
+        float rB = colRB, bxx = colBX, byy = colBY;
 
         canvas.save();
         canvas.clipRect(0, 0, getWidth(), yc + dp(0.5f));

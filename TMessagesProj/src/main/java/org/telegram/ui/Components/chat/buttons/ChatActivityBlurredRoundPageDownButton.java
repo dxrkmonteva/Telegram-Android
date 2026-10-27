@@ -48,7 +48,11 @@ public class ChatActivityBlurredRoundPageDownButton extends FrameLayout {
         }
         tideView = new TideView(getContext(), resourcesProvider);
         // below the counter, above the glass button; wider/taller than the button, draws outside of it
-        addView(tideView, 1, LayoutHelper.createFrame(TideView.VIEW_W_DP, TideView.VIEW_H_DP, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL));
+        // OpenGL ES 3 layer renders the liquid; the Canvas TideView keeps simulating and is the fallback
+        TideGLView gl = new TideGLView(getContext());
+        addView(gl, 1, LayoutHelper.createFrame(TideView.VIEW_W_DP, TideView.VIEW_H_DP, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL));
+        addView(tideView, 2, LayoutHelper.createFrame(TideView.VIEW_W_DP, TideView.VIEW_H_DP, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL));
+        tideView.setGL(gl);
         tideView.setClickable(false);
         tideView.setEntryEnabled(org.telegram.messenger.SharedConfig.tideFillAnimation);
         tideView.setEntryListener((landed, total) -> {
