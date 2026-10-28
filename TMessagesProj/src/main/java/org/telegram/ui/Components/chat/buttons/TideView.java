@@ -40,12 +40,12 @@ import org.telegram.ui.ActionBar.Theme;
  */
 @SuppressLint("ViewConstructor")
 public class TideView extends View implements SensorEventListener {
-    public static final int VIEW_W_DP = 160;
+    public static final int VIEW_W_DP = 240;
     public static final int VIEW_H_DP = 56 + 250;
     public static final int RADIUS_DP = 26;
     public static final int PULL_MAX_DP = 205;
     public static final int PULL_ARM_DP = 92;
-    public static final int SIDE_MAX_DP = 46;
+    public static final int SIDE_MAX_DP = 90;
 
     private static final int N = 36;      // surface nodes
     private static final int M = 10;      // column nodes
@@ -224,7 +224,7 @@ public class TideView extends View implements SensorEventListener {
         pulling = true;
         pullTarget = max * (1f - (float) Math.exp(-Math.max(0, dy) / dp(150)));
         float side = dp(SIDE_MAX_DP);
-        sideTarget = Math.max(-side, Math.min(side, dx * 0.7f));
+        sideTarget = Math.max(-side, Math.min(side, dx));
         boolean nowArmed = pullTarget >= dp(PULL_ARM_DP);
         if (nowArmed != armed) {
             armed = nowArmed;
