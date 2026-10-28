@@ -41,8 +41,8 @@ import org.telegram.ui.ActionBar.Theme;
 @SuppressLint("ViewConstructor")
 public class TideView extends View implements SensorEventListener {
     public static final int VIEW_W_DP = 240;
-    public static final int VIEW_H_DP = 56 + 250;
-    public static final int RADIUS_DP = 26;
+    public static final int VIEW_H_DP = 68 + 250;
+    public static final int RADIUS_DP = 33;
     public static final int PULL_MAX_DP = 205;
     public static final int PULL_ARM_DP = 92;
     public static final int SIDE_MAX_DP = 90;
@@ -368,7 +368,7 @@ public class TideView extends View implements SensorEventListener {
         super.onSizeChanged(w, h2, oldw, oldh);
         R = dp(RADIUS_DP);
         cx = w / 2f;
-        cy = h2 - dp(28);
+        cy = h2 - dp(34);
         circle.reset();
         circle.addCircle(cx, cy, R, Path.Direction.CW);
         rebuildShaders();

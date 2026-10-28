@@ -182,11 +182,14 @@ public class ChatActivitySideControlsButtonsLayout extends FrameLayout implement
             holder.button.setAlpha(visibility);
             holder.button.setScaleX(lerp(0.7f, 1f, visibility));
             holder.button.setScaleY(lerp(0.7f, 1f, visibility));
+            if (buttonId != BUTTON_ATTACH && buttonId != BUTTON_PAGE_DOWN) {
+                holder.button.setTranslationX(dp(6)); // keep the centres aligned with the bigger flask
+            }
             if (buttonId != BUTTON_ATTACH) {
                 holder.button.setTranslationY(dp(80) * (1f - visibility) - totalHeight);
             }
 
-            final int height = dp(44);
+            final int height = dp(buttonId == BUTTON_PAGE_DOWN ? 56 : 44);
             final int gap = dp(10 + 10 * counterVisibility);
 
             totalHeight += (height + gap) * visibility;
@@ -229,6 +232,9 @@ public class ChatActivitySideControlsButtonsLayout extends FrameLayout implement
             if (buttonId == BUTTON_ATTACH) {
                 size = 50;
                 iconSize = 32;
+            } else if (buttonId == BUTTON_PAGE_DOWN) {
+                size = 68; // the Tide flask is bigger than the other side buttons
+                iconSize = 56;
             }
             final ChatActivityBlurredRoundPageDownButton button = ChatActivityBlurredRoundPageDownButton.create(
                 getContext(),

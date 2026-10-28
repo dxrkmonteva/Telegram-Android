@@ -7204,7 +7204,7 @@ public class ChatActivity extends BaseFragment implements
         sideControlsButtonsLayout.setOnLongClickListener(this::onSideControlButtonOnLongClick);
         {
             final int indexToAdd = chatActivityFadeView != null ? contentView.indexOfChild(chatActivityFadeView) : -1;
-            contentView.addView(sideControlsButtonsLayout, indexToAdd, LayoutHelper.createFrame(57, 300, Gravity.RIGHT | Gravity.BOTTOM));
+            contentView.addView(sideControlsButtonsLayout, indexToAdd, LayoutHelper.createFrame(70, 300, Gravity.RIGHT | Gravity.BOTTOM));
         }
 
         updateMessageListAccessibilityVisibility();
